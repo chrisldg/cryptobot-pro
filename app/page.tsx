@@ -154,7 +154,7 @@ export default function CryptoBotPro() {
     setIsAuthenticated(true);
   }, []);
 
-  const handleKeyPress = useCallback((e) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleLogin();
     }
