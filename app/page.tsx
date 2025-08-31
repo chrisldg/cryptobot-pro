@@ -3,12 +3,46 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   TrendingUp, TrendingDown, DollarSign, Activity, BarChart3, 
-  Settings, Play, Pause, AlertCircle, Zap, Shield, Clock, 
-  Target, PieChart, ChevronRight, Menu, X, Moon, Sun, 
-  LineChart, Wallet, Bot, ArrowUpRight, ArrowDownRight,
-  Users, Award, RefreshCw, Plus, Home, Grid, TrendingUp as Trend
+  Settings, Play, Pause, AlertCircle, Zap, 
+  ChevronRight, Menu, X, Moon, Sun, 
+  Wallet, Bot, ArrowUpRight,
+  Plus, Home
 } from 'lucide-react';
-import { LineChart as RechartsLineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+interface CardProps {
+  children: React.ReactNode;
+  className?: string;
+  onClick?: () => void;
+}
+
+interface BotConfig {
+  name: string;
+  type: string;
+  pair: string;
+  investment: number;
+  config: Record<string, any>;
+}
+
+interface Bot {
+  id: number;
+  name: string;
+  type: string;
+  status: string;
+  pair: string;
+  profit: number;
+  profitPercent: number;
+  investment: number;
+  runtime: string;
+  trades: number;
+  config: Record<string, any>;
+}
+
+interface CryptoData {
+  price: number;
+  change: number;
+  volume: string;
+}
 
 export default function CryptoBotPro() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -17,11 +51,10 @@ export default function CryptoBotPro() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [selectedBot, setSelectedBot] = useState(null);
   const [showCreateBot, setShowCreateBot] = useState(false);
   
   // État des données en temps réel
-  const [cryptoPrices, setCryptoPrices] = useState({
+  const [cryptoPrices, setCryptoPrices] = useState<Record<string, CryptoData>>({
     BTC: { price: 64782.45, change: 2.34, volume: '24.5B' },
     ETH: { price: 3245.78, change: -1.12, volume: '12.3B' },
     BNB: { price: 512.34, change: 3.45, volume: '1.8B' },
@@ -31,11 +64,11 @@ export default function CryptoBotPro() {
 
   const [portfolioValue, setPortfolioValue] = useState(125432.67);
   const [dailyProfit, setDailyProfit] = useState(1234.56);
-  const [activeBotsCount, setActiveBotsCount] = useState(3);
-  const [totalTrades, setTotalTrades] = useState(1847);
+  const activeBotsCount = 3;
+  const totalTrades = 1847;
 
   // Données des bots
-  const [bots, setBots] = useState([
+  const [bots, setBots] = useState<Bot[]>([
     {
       id: 1,
       name: 'DCA Bitcoin Pro',
@@ -92,7 +125,7 @@ export default function CryptoBotPro() {
   ]);
 
   // Configuration pour nouveau bot
-  const [newBotConfig, setNewBotConfig] = useState({
+  const [newBotConfig, setNewBotConfig] = useState<BotConfig>({
     name: '',
     type: 'DCA',
     pair: 'BTC/USDT',
@@ -161,7 +194,7 @@ export default function CryptoBotPro() {
   }, [handleLogin]);
 
   // Gestion des bots
-  const toggleBotStatus = useCallback((botId) => {
+  const toggleBotStatus = useCallback((botId: number) => {
     setBots(prev => prev.map(bot => 
       bot.id === botId 
         ? { ...bot, status: bot.status === 'active' ? 'paused' : 'active' }
@@ -170,7 +203,7 @@ export default function CryptoBotPro() {
   }, []);
 
   const createNewBot = useCallback(() => {
-    const newBot = {
+    const newBot: Bot = {
       id: bots.length + 1,
       ...newBotConfig,
       status: 'active',
@@ -191,7 +224,7 @@ export default function CryptoBotPro() {
   }, [bots, newBotConfig]);
 
   // Composant Card réutilisable
-  const Card = ({ children, className = '', onClick = null }) => (
+  const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => (
     <div 
       className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 ${className} ${onClick ? 'cursor-pointer hover:shadow-xl transition-shadow' : ''}`}
       onClick={onClick}
@@ -273,7 +306,7 @@ export default function CryptoBotPro() {
             </div>
 
             <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-              <p>Pas encore de compte? <a href="#" className="text-purple-600 hover:underline">S'inscrire</a></p>
+              <p>Pas encore de compte? <a href="#" className="text-purple-600 hover:underline">S&apos;inscrire</a></p>
             </div>
           </Card>
         </div>
