@@ -1,217 +1,164 @@
 // app/api/stripe/route.ts
-// Installation: npm install stripe @stripe/stripe-js
-
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { supabase } from '@/lib/supabase';
 
-// Initialisez avec votre clé secrète Stripe (utilisez les variables d'environnement)
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_YOUR_TEST_KEY', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
-// Configuration des plans
+// LIMITES DE SÉCURITÉ
+const SECURITY_LIMITS = {
+  MAX_INVESTMENT_PER_USER: 1000, // Maximum 1000€ par utilisateur
+  REQUIRE_2FA_ABOVE: 100, // 2FA obligatoire au-dessus de 100€
+  TESTNET_ONLY: true, // TOUJOURS en mode test au début
+};
+
+// Plans avec disclaimer
 const PLANS = {
-  starter: {
-    priceId: 'price_starter', // Créez ces prix dans votre dashboard Stripe
-    name: 'Starter',
-    price: 19,
-    features: ['1 Bot', 'DCA Strategy', 'Support email']
+  free: {
+    priceId: 'free',
+    name: 'Gratuit - Mode Démo',
+    price: 0,
+    features: [
+      '1 Bot en mode simulation',
+      'Volume max: 100€ (virtuel)',
+      'Dashboard basique',
+      '⚠️ AUCUN TRADING RÉEL'
+    ],
+    limits: { maxBots: 1, maxVolume: 100 }
   },
   pro: {
-    priceId: 'price_pro',
-    name: 'Pro',
+    priceId: process.env.STRIPE_PRO_PRICE_ID!,
+    name: 'Pro - Trading Simulé',
     price: 49,
-    features: ['5 Bots', 'All Strategies', 'Priority Support', 'API Access']
+    features: [
+      '10 Bots',
+      'Backtesting historique',
+      'Export CSV',
+      'Support prioritaire',
+      '⚠️ MODE PAPER TRADING UNIQUEMENT'
+    ],
+    limits: { maxBots: 10, maxVolume: 1000 }
   },
-  enterprise: {
-    priceId: 'price_enterprise',
-    name: 'Enterprise',
+  premium: {
+    priceId: process.env.STRIPE_PREMIUM_PRICE_ID!,
+    name: 'Premium - Testnet Binance',
     price: 149,
-    features: ['Unlimited Bots', 'Custom Strategies', 'Dedicated Support']
+    features: [
+      'Bots illimités',
+      'API Binance TESTNET',
+      'Notifications Telegram',
+      '2FA obligatoire',
+      '⚠️ LIMITE: 1000€ MAX PAR UTILISATEUR'
+    ],
+    limits: { maxBots: -1, maxVolume: 1000 }
   }
 };
 
-// Endpoint pour créer une session de checkout
+// Logger toutes les transactions
+async function logTransaction(userId: string, action: string, details: any) {
+  const { error } = await supabase
+    .from('transaction_logs')
+    .insert({
+      user_id: userId,
+      action,
+      details,
+      ip_address: details.ip || 'unknown',
+      timestamp: new Date().toISOString()
+    });
+    
+  if (error) console.error('Erreur log transaction:', error);
+}
+
 export async function POST(request: Request) {
   try {
-    const { planId, userEmail } = await request.json();
+    const { planId, userEmail, userId, agreedToRisks } = await request.json();
     
+    // VÉRIFICATION 1: Acceptation des risques
+    if (!agreedToRisks) {
+      return NextResponse.json({ 
+        error: 'Vous devez accepter les conditions et risques de trading' 
+      }, { status: 400 });
+    }
+    
+    // VÉRIFICATION 2: Plan valide
     if (!PLANS[planId as keyof typeof PLANS]) {
-      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+      return NextResponse.json({ error: 'Plan invalide' }, { status: 400 });
     }
 
     const plan = PLANS[planId as keyof typeof PLANS];
+    
+    // VÉRIFICATION 3: Limite utilisateur
+    const { data: userLimits } = await supabase
+      .from('user_limits')
+      .select('total_invested')
+      .eq('user_id', userId)
+      .single();
+      
+    if (userLimits?.total_invested >= SECURITY_LIMITS.MAX_INVESTMENT_PER_USER) {
+      return NextResponse.json({ 
+        error: `Limite de sécurité atteinte (max ${SECURITY_LIMITS.MAX_INVESTMENT_PER_USER}€)` 
+      }, { status: 400 });
+    }
 
-    // Créer la session Stripe Checkout
+    // Logger la tentative de souscription
+    await logTransaction(userId, 'SUBSCRIPTION_ATTEMPT', {
+      plan: planId,
+      email: userEmail,
+      ip: request.headers.get('x-forwarded-for')
+    });
+
+    // Créer la session Stripe avec disclaimer
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: `CryptoBot Pro - ${plan.name}`,
-              description: plan.features.join(', '),
-            },
-            unit_amount: plan.price * 100, // Stripe utilise les centimes
-            recurring: {
-              interval: 'month',
-            },
+      line_items: [{
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: `CryptoBot Pro - ${plan.name}`,
+            description: [
+              ...plan.features,
+              '',
+              '⚠️ AVERTISSEMENT LÉGAL:',
+              'Le trading de cryptomonnaies comporte des risques élevés.',
+              'Vous pouvez perdre tout votre capital.',
+              'Les performances passées ne garantissent pas les résultats futurs.',
+              'CryptoBot Pro n\'est PAS un conseil en investissement.'
+            ].join('\n'),
           },
-          quantity: 1,
+          unit_amount: plan.price * 100,
+          recurring: {
+            interval: 'month',
+          },
         },
-      ],
+        quantity: 1,
+      }],
       mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_URL}/pricing`,
+      success_url: `${process.env.NEXT_PUBLIC_URL}/dashboard?subscription=success&disclaimer=accepted`,
+      cancel_url: `${process.env.NEXT_PUBLIC_URL}/pricing?canceled=true`,
       customer_email: userEmail,
       subscription_data: {
-        trial_period_days: 7, // 7 jours d'essai gratuit
+        trial_period_days: 7,
+        metadata: {
+          max_volume: plan.limits.maxVolume,
+          max_bots: plan.limits.maxBots,
+          testnet_only: SECURITY_LIMITS.TESTNET_ONLY.toString()
+        }
       },
       metadata: {
         planId,
+        userId,
         userEmail,
+        agreed_to_risks: 'true',
+        timestamp: new Date().toISOString()
       },
     });
 
     return NextResponse.json({ sessionId: session.id, url: session.url });
   } catch (error: any) {
-    console.error('Stripe error:', error);
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
-  }
-}
-
-// Webhook pour gérer les événements Stripe
-export async function webhook(request: Request) {
-  const sig = request.headers.get('stripe-signature')!;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-  
-  try {
-    const body = await request.text();
-    const event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-
-    switch (event.type) {
-      case 'checkout.session.completed':
-        const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutSessionCompleted(session);
-        break;
-        
-      case 'customer.subscription.created':
-        await handleSubscriptionCreated(event.data.object as Stripe.Subscription);
-        break;
-        
-      case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
-        break;
-        
-      case 'customer.subscription.deleted':
-        await handleSubscriptionCanceled(event.data.object as Stripe.Subscription);
-        break;
-        
-      case 'invoice.payment_succeeded':
-        await handlePaymentSucceeded(event.data.object as Stripe.Invoice);
-        break;
-        
-      case 'invoice.payment_failed':
-        await handlePaymentFailed(event.data.object as Stripe.Invoice);
-        break;
-    }
-
-    return NextResponse.json({ received: true });
-  } catch (error: any) {
-    console.error('Webhook error:', error.message);
-    return NextResponse.json(
-      { error: `Webhook Error: ${error.message}` },
-      { status: 400 }
-    );
-  }
-}
-
-// Handlers pour les différents événements
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  const userEmail = session.customer_email;
-  const planId = session.metadata?.planId;
-  
-  // Mettre à jour votre base de données
-  console.log(`New subscription for ${userEmail} - Plan: ${planId}`);
-  
-  // TODO: Activer le compte utilisateur dans votre DB
-  // await updateUserSubscription(userEmail, planId, session.subscription);
-}
-
-async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
-  console.log('Subscription created:', subscription.id);
-  // TODO: Créer l'entrée dans votre DB
-}
-
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  console.log('Subscription updated:', subscription.id);
-  // TODO: Mettre à jour le plan dans votre DB
-}
-
-async function handleSubscriptionCanceled(subscription: Stripe.Subscription) {
-  console.log('Subscription canceled:', subscription.id);
-  // TODO: Désactiver les bots de l'utilisateur
-}
-
-async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
-  console.log('Payment succeeded:', invoice.id);
-  // TODO: Envoyer email de confirmation
-}
-
-async function handlePaymentFailed(invoice: Stripe.Invoice) {
-  console.log('Payment failed:', invoice.id);
-  // TODO: Envoyer email d'alerte et suspendre les bots après 3 échecs
-}
-
-// ===== COMPOSANT REACT POUR LE CHECKOUT =====
-// components/StripeCheckout.tsx
-
-export const StripeCheckoutButton = ({ planId, userEmail }: { planId: string; userEmail: string }) => {
-  const handleCheckout = async () => {
-    try {
-      const response = await fetch('/api/stripe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ planId, userEmail }),
-      });
-
-      const { url } = await response.json();
-      
-      if (url) {
-        window.location.href = url;
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
-    }
-  };
-
-  return (
-    <button
-      onClick={handleCheckout}
-      className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg"
-    >
-      S'abonner
-    </button>
-  );
-};
-
-// ===== PORTAL CLIENT POUR GÉRER L'ABONNEMENT =====
-export async function createCustomerPortalSession(customerId: string) {
-  try {
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${process.env.NEXT_PUBLIC_URL}/dashboard/settings`,
-    });
-    
-    return session.url;
-  } catch (error) {
-    console.error('Portal error:', error);
-    return null;
+    console.error('Erreur Stripe:', error);
+    await logTransaction('unknown', 'SUBSCRIPTION_ERROR', { error: error.message });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
