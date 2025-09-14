@@ -56,13 +56,13 @@ export default function RiskDisclaimer() {
             >
                 J'accepte les risques et je comprends
             </button>
-            <a    {/* ← IL MANQUAIT CETTE BALISE */}
+            <a
                 href="https://google.com"
                 className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 px-6 rounded-lg font-bold text-center"
             >
                 Je refuse, quitter
             </a>
-            </div>
+        </div>
       </div>
     </div>
   );
