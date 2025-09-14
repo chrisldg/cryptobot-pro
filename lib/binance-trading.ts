@@ -320,7 +320,7 @@ export class RealGridBot {
       for (const gridOrder of this.gridOrders) {
         try {
           // Vérifier le statut de l'ordre
-          const order = await this.binance.exchange.fetchOrder(
+          const order = await this.binance.fetchOrder(
             gridOrder.order.id,
             this.symbol
           );
