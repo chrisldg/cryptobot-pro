@@ -1,14 +1,18 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  TrendingUp, TrendingDown, DollarSign, Activity, BarChart3, 
-  Settings, Play, Pause, AlertCircle, Zap, 
-  ChevronRight, Menu, X, Moon, Sun, 
+import {
+  TrendingUp, TrendingDown, DollarSign, Activity, BarChart3,
+  Settings, Play, Pause, AlertCircle, Zap,
+  ChevronRight, Menu, X, Moon, Sun,
   Wallet, Bot, ArrowUpRight,
-  Plus, Home
+  Plus, Home as HomeIcon
 } from 'lucide-react';
-import { AreaChart, Area, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  AreaChart, Area, BarChart, Bar,
+  PieChart as RechartsPieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
 
 interface CardProps {
   children: React.ReactNode;
@@ -306,7 +310,7 @@ export default function CryptoBotPro() {
             </div>
 
             <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-              <p>Pas encore de compte? <a href="#" className="text-purple-600 hover:underline">S&apos;inscrire</a></p>
+              <p>Pas encore de compte? <a href="/signup" className="text-purple-600 hover:underline">S&apos;inscrire</a></p>
             </div>
           </Card>
         </div>
@@ -314,7 +318,7 @@ export default function CryptoBotPro() {
     );
   }
 
-  // Dashboard principal
+  // Dashboard principal  
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
       {/* Sidebar */}
@@ -342,7 +346,7 @@ export default function CryptoBotPro() {
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
-              <Home className="w-5 h-5" />
+              <HomeIcon className="w-5 h-5" />
               <span>Dashboard</span>
             </button>
 
@@ -407,7 +411,6 @@ export default function CryptoBotPro() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="lg:ml-64 min-h-screen">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">

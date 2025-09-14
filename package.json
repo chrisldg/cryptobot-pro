@@ -9,11 +9,20 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@stripe/stripe-js": "^7.9.0",
+    "@supabase/supabase-js": "^2.57.4",
+    "ccxt": "^4.5.2",
+    "csv-parse": "^6.1.0",
+    "csv-writer": "^1.6.0",
+    "discord.js": "^14.22.1",
     "lucide-react": "^0.542.0",
     "next": "15.5.2",
+    "node-telegram-bot-api": "^0.66.0",
+    "nodemailer": "^7.0.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "recharts": "^3.1.2"
+    "recharts": "^3.1.2",
+    "stripe": "^18.5.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
