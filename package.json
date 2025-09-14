@@ -15,6 +15,7 @@
     "csv-parse": "^6.1.0",
     "csv-writer": "^1.6.0",
     "discord.js": "^14.22.1",
+    "dotenv": "^17.2.2",
     "lucide-react": "^0.542.0",
     "next": "15.5.2",
     "node-telegram-bot-api": "^0.66.0",

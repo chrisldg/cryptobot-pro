@@ -904,6 +904,46 @@ const handleLogout = async () => {
                   <button className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-colors">
                     Sauvegarder
                   </button>
+
+                  {/* AJOUTEZ ICI LE NOUVEAU BOUTON */}
+                  <button 
+                    onClick={async () => {
+                      const res = await fetch('/api/binance/balance');
+                      const data = await res.json();
+                      console.log('Binance Testnet Balance:', data);
+
+                      if (data.balances && data.balances.length > 0) {
+                        const formattedBalances = data.balances
+                          .map((b: any) => `${b.asset}: ${parseFloat(b.free).toFixed(2)}`)
+                          .join('\n');
+                        alert(`✅ Connexion Testnet Réussie!\n\nVos Balances:\n${formattedBalances}`);
+                      } else if (data.error) {
+                        alert(`❌ Erreur: ${data.error}`);
+                      } else {
+                        alert('Aucune balance trouvée');
+                      }
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg ml-2"
+                  >
+                    Tester Connexion Binance (TESTNET)
+                  </button>
+
+                  {/* AJOUTEZ ICI LE NOUVEAU BOUTON */}
+
+                  <button 
+                    onClick={async () => {
+                      const res = await fetch('/api/binance/prices');
+                      const data = await res.json();
+                      console.log('Prix et balances:', data);
+                      if (data.portfolioValue) {
+                        alert(`Portfolio Value: $${data.portfolioValue}`);
+                      }
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg ml-2"
+                  >
+                    Voir Prix & Portfolio
+                  </button>
+
                 </div>
               </Card>
             </div>
