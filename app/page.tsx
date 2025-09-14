@@ -13,6 +13,7 @@ import {
   PieChart as RechartsPieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
+import { supabase } from '@/lib/supabase';
 
 interface CardProps {
   children: React.ReactNode;
@@ -179,13 +180,50 @@ export default function CryptoBotPro() {
   ];
 
   // Gestion de l'authentification
-  const handleLogin = useCallback(() => {
-    if (email === 'demo@cryptobot.com' && password === 'demo123') {
-      setIsAuthenticated(true);
-    } else if (email && password) {
-      setIsAuthenticated(true);
-    }
-  }, [email, password]);
+  const handleLogin = useCallback(async () => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  
+  if (error) {
+    alert('Erreur: ' + error.message);
+  } else {
+    setIsAuthenticated(true);
+    // Charger les données réelles de l'utilisateur
+    loadUserData(data.user.id);
+  }
+}, [email, password]);
+
+  const loadUserData = async (userId: string) => {
+  // Charger le portfolio
+  const { data: portfolio } = await supabase
+    .from('portfolios')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+  
+  if (portfolio) {
+    setPortfolioValue(portfolio.total_value || 125432.67);
+    setDailyProfit(portfolio.daily_profit || 1234.56);
+  }
+  
+  // Charger les bots
+  const { data: userBots } = await supabase
+    .from('bots')
+    .select('*')
+    .eq('user_id', userId);
+  
+  if (userBots && userBots.length > 0) {
+    setBots(userBots);
+  }
+};
+
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+  setIsAuthenticated(false);
+  window.location.href = '/';
+};
 
   const handleDemoAccess = useCallback(() => {
     setIsAuthenticated(true);
@@ -206,17 +244,32 @@ export default function CryptoBotPro() {
     ));
   }, []);
 
-  const createNewBot = useCallback(() => {
-    const newBot: Bot = {
-      id: bots.length + 1,
-      ...newBotConfig,
-      status: 'active',
-      profit: 0,
-      profitPercent: 0,
-      runtime: '0 jours',
-      trades: 0
-    };
-    setBots(prev => [...prev, newBot]);
+  const createNewBot = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      const { data, error } = await supabase
+        .from('bots')
+        .insert({
+          user_id: user.id,
+          name: newBotConfig.name,
+          type: newBotConfig.type,
+          pair: newBotConfig.pair,
+          investment: newBotConfig.investment,
+          status: 'active',
+          profit: 0,
+          profit_percent: 0,
+          trades: 0,
+          config: newBotConfig.config
+        })
+        .select()
+        .single();
+      
+      if (data) {
+        setBots(prev => [...prev, data]);
+      }
+    }
+    
     setShowCreateBot(false);
     setNewBotConfig({
       name: '',
@@ -225,7 +278,7 @@ export default function CryptoBotPro() {
       investment: 1000,
       config: {}
     });
-  }, [bots, newBotConfig]);
+  }, [newBotConfig]);
 
   // Composant Card réutilisable
   const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => (
@@ -407,10 +460,17 @@ export default function CryptoBotPro() {
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               <span>{isDarkMode ? 'Mode Clair' : 'Mode Sombre'}</span>
             </button>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors mt-2"
+            >
+              Déconnexion
+            </button>
           </div>
         </div>
       </div>
 
+          
       <div className="lg:ml-64 min-h-screen">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
