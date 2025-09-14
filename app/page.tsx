@@ -70,7 +70,37 @@ export default function CryptoBotPro() {
   const [portfolioValue, setPortfolioValue] = useState(125432.67);
   const [dailyProfit, setDailyProfit] = useState(1234.56);
   const activeBotsCount = 3;
-  const totalTrades = 1847;
+
+
+  // État pour l'historique des trades
+  const [tradeHistory, setTradeHistory] = useState<any[]>([]);
+  const [loadingTrades, setLoadingTrades] = useState(false);
+
+  // Ajoutez cette ligne ici maintenant
+  const totalTrades = tradeHistory.length || 0;
+
+  // Fonction pour charger les trades
+  const loadTradeHistory = useCallback(async () => {
+    setLoadingTrades(true);
+    try {
+      const res = await fetch('/api/binance/trades');
+      const data = await res.json();
+      if (data.success) {
+        setTradeHistory(data.trades);
+      }
+    } catch (error) {
+      console.error('Error loading trades:', error);
+    } finally {
+      setLoadingTrades(false);
+    }
+  }, []);
+
+  // Charger les trades au montage
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadTradeHistory();
+    }
+  }, [isAuthenticated, loadTradeHistory]);
 
   // Données des bots
   const [bots, setBots] = useState<Bot[]>([
@@ -660,6 +690,72 @@ const handleLogout = async () => {
                   ))}
                 </div>
               </Card>
+
+              {/* Historique des Trades */}
+              <Card>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Historique des Trades Récents
+                  </h3>
+                  <button
+                    onClick={loadTradeHistory}
+                    className="text-purple-600 hover:text-purple-700 text-sm"
+                  >
+                    {loadingTrades ? 'Chargement...' : 'Actualiser'}
+                  </button>
+                </div>
+                
+                {tradeHistory.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b dark:border-gray-700">
+                          <th className="text-left py-2 text-gray-600 dark:text-gray-400">Date</th>
+                          <th className="text-left py-2 text-gray-600 dark:text-gray-400">Paire</th>
+                          <th className="text-left py-2 text-gray-600 dark:text-gray-400">Type</th>
+                          <th className="text-right py-2 text-gray-600 dark:text-gray-400">Quantité</th>
+                          <th className="text-right py-2 text-gray-600 dark:text-gray-400">Prix</th>
+                          <th className="text-right py-2 text-gray-600 dark:text-gray-400">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tradeHistory.slice(0, 10).map((trade, index) => (
+                          <tr key={trade.id || index} className="border-b dark:border-gray-700">
+                            <td className="py-2 text-gray-900 dark:text-white">
+                              {new Date(trade.time).toLocaleDateString('fr-FR')}
+                            </td>
+                            <td className="py-2 text-gray-900 dark:text-white">{trade.symbol}</td>
+                            <td className="py-2">
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                trade.isBuyer 
+                                  ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300' 
+                                  : 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300'
+                              }`}>
+                                {trade.isBuyer ? 'ACHAT' : 'VENTE'}
+                              </span>
+                            </td>
+                            <td className="py-2 text-right text-gray-900 dark:text-white">
+                              {trade.qty.toFixed(8)}
+                            </td>
+                            <td className="py-2 text-right text-gray-900 dark:text-white">
+                              ${trade.price.toFixed(2)}
+                            </td>
+                            <td className="py-2 text-right font-medium text-gray-900 dark:text-white">
+                              ${trade.quoteQty.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    {loadingTrades ? 'Chargement des trades...' : 'Aucun trade récent'}
+                  </div>
+                )}
+              </Card>
+
+
             </div>
           )}
 
@@ -679,6 +775,32 @@ const handleLogout = async () => {
                   <Plus className="w-5 h-5" />
                   Créer Bot
                 </button>
+                {/* NOUVEAU BOUTON TEST DCA */}
+                <button 
+                  onClick={async () => {
+                    if (!confirm('Créer un ordre TEST de 0.001 BTC (~100 USDT) ?')) return;
+                    
+                    const res = await fetch('/api/binance/create-order', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        symbol: 'BTCUSDT',
+                        side: 'BUY',
+                        quantity: 0.001,
+                        type: 'MARKET'
+                      })
+                    });
+                    
+                    const data = await res.json();
+                    console.log('Order result:', data);
+                    alert(data.success ? '✅ Ordre TEST créé!' : `❌ Erreur: ${data.error}`);
+                  }}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <Zap className="w-5 h-5" />
+                  Test Ordre DCA (0.001 BTC)
+                </button>
+
               </div>
 
               {/* Bots Grid */}
