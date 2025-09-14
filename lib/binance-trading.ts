@@ -325,6 +325,7 @@ export class RealGridBot {
             id: gridOrder.order.id,
             status: 'closed',
             filled: gridOrder.order.amount,
+            amount: gridOrder.order.amount,  // Ajoutez cette ligne
             remaining: 0,
             price: gridOrder.order.price
           };
