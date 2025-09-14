@@ -506,6 +506,11 @@ const handleLogout = async () => {
 
         {/* Content */}
         <main className="p-6">
+          {/* AJOUTEZ ICI LE BANDEAU */}
+          <div className="bg-yellow-600 text-white p-2 text-center mb-4 rounded-lg">
+            ⚠️ MODE DÉMO - Aucun trading réel - Pour test uniquement
+          </div>    
+
           {activeSection === 'dashboard' && (
             <div className="space-y-6">
               {/* Stats Cards */}
