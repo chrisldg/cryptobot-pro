@@ -50,19 +50,19 @@ export default function RiskDisclaimer() {
         </div>
 
         <div className="flex gap-4">
-          <button
-            onClick={handleAccept}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-bold"
-          >
-            J'accepte les risques et je comprends
-          </button>
-          
-            href="https://google.com"
-            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 px-6 rounded-lg font-bold text-center"
-          >
-            Je refuse, quitter
-          </a>
-        </div>
+            <button
+                onClick={handleAccept}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-bold"
+            >
+                J'accepte les risques et je comprends
+            </button>
+            <a    {/* ← IL MANQUAIT CETTE BALISE */}
+                href="https://google.com"
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 px-6 rounded-lg font-bold text-center"
+            >
+                Je refuse, quitter
+            </a>
+            </div>
       </div>
     </div>
   );
