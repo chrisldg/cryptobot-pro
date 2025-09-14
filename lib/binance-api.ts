@@ -32,7 +32,7 @@ export class BinanceAPI {
   
   async createOrder(symbol: string, side: 'BUY' | 'SELL', quantity: number) {
     // IMPORTANT: Toujours utiliser le TESTNET d'abord
-    console.log('⚠️ MODE TEST - Pas d'ordre réel placé');
+    console.log('⚠️ MODE TEST - Pas d\'ordre réel placé');
     return {
       orderId: 'TEST-' + Date.now(),
       symbol,
