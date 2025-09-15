@@ -70,7 +70,7 @@ export class MomentumStrategy {
       const currentPrice = prices[prices.length - 1];
       
       // Calculer la force de la tendance
-      const pricesAboveMA = prices.slice(-20).filter(p => p > ma20).length;
+      const pricesAboveMA = prices.slice(-20).filter((p: number) => p > ma20).length;
       const trendStrength = pricesAboveMA / 20;
       
       // RSI
