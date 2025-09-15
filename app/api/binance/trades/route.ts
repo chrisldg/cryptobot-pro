@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
 export async function GET(request: Request) {
+  // MODE DÉMO
+  if (!process.env.BINANCE_API_KEY || process.env.BINANCE_API_KEY === 'demo') {
+    return NextResponse.json({ 
+      success: true, 
+      trades: [],
+      message: 'Mode démo - pas de trades réels',
+      demo: true
+    });
+  }
+  
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol') || 'BTCUSDT';
   
@@ -24,7 +34,6 @@ export async function GET(request: Request) {
 
     const trades = await response.json();
     
-    // Formatter les trades
     const formattedTrades = Array.isArray(trades) ? trades.map((trade: any) => ({
       id: trade.id,
       orderId: trade.orderId,
@@ -44,6 +53,9 @@ export async function GET(request: Request) {
       count: formattedTrades.length
     });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch trades' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to fetch trades',
+      demo: true 
+    }, { status: 500 });
   }
 }

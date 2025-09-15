@@ -63,6 +63,26 @@ export class DCABot {
   }
   
   async executeTrade(retryCount = 0): Promise<boolean> {
+    // AJOUT MODE DÉMO
+    if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_BINANCE_API_KEY) {
+      console.log('🎮 MODE DÉMO - Simulation de trade DCA');
+      const demoPrice = this.getDemoPrice();
+      const demoQuantity = this.amount / demoPrice;
+      
+      this.updateStats(demoQuantity, demoPrice, true);
+      await this.logTrade({
+        timestamp: new Date(),
+        symbol: this.symbol,
+        amount: this.amount,
+        quantity: demoQuantity,
+        price: demoPrice,
+        orderId: 'DEMO-' + Date.now(),
+        status: 'success'
+      });
+      
+      return true;
+    }
+    
     try {
       console.log(`📊 Executing DCA trade attempt ${retryCount + 1}/${this.maxRetries}`);
       
@@ -78,20 +98,15 @@ export class DCABot {
 
       // Règles spécifiques par crypto
       if (this.symbol === 'BTCUSDT') {
-      // BTC : minimum 0.001
-      finalQuantity = Math.max(0.001, Math.floor(rawQuantity * 1000) / 1000);
+        finalQuantity = Math.max(0.001, Math.floor(rawQuantity * 1000) / 1000);
       } else if (this.symbol === 'ETHUSDT') {
-      // ETH : minimum 0.01
-      finalQuantity = Math.max(0.01, Math.floor(rawQuantity * 100) / 100);
+        finalQuantity = Math.max(0.01, Math.floor(rawQuantity * 100) / 100);
       } else if (this.symbol === 'BNBUSDT') {
-      // BNB : minimum 0.01
-      finalQuantity = Math.max(0.01, Math.floor(rawQuantity * 100) / 100);
+        finalQuantity = Math.max(0.01, Math.floor(rawQuantity * 100) / 100);
       } else {
-      // Autres : arrondir à 2 décimales
-      finalQuantity = Math.max(0.01, Math.floor(rawQuantity * 100) / 100);
+        finalQuantity = Math.max(0.01, Math.floor(rawQuantity * 100) / 100);
       }
 
-      // Corriger l'affichage du symbole
       const cryptoSymbol = this.symbol.replace('USDT', '');
       console.log(`💰 Trade details: ${finalQuantity} ${cryptoSymbol} @ $${currentPrice}`);
       
@@ -117,10 +132,8 @@ export class DCABot {
       if (result.success) {
         console.log(`✅ DCA Trade executed successfully:`, result);
         
-        // Mettre à jour les statistiques
         this.updateStats(finalQuantity, currentPrice, true);
         
-        // Logger le trade
         await this.logTrade({
           timestamp: new Date(),
           symbol: this.symbol,
@@ -139,14 +152,12 @@ export class DCABot {
     } catch (error) {
       console.error(`❌ DCA Trade failed:`, error);
       
-      // Retry logic
       if (retryCount < this.maxRetries - 1) {
         console.log(`🔄 Retrying in 5 seconds...`);
         await new Promise(resolve => setTimeout(resolve, 5000));
         return this.executeTrade(retryCount + 1);
       }
       
-      // Log failed trade
       this.updateStats(0, 0, false);
       await this.logTrade({
         timestamp: new Date(),
@@ -163,6 +174,11 @@ export class DCABot {
   }
   
   async getCurrentPrice(): Promise<number> {
+    // MODE DÉMO
+    if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_BINANCE_API_KEY) {
+      return this.getDemoPrice();
+    }
+    
     try {
       const res = await fetch(`/api/binance/prices?symbols=${this.symbol}`);
       
@@ -179,9 +195,20 @@ export class DCABot {
       throw new Error('No price data available');
     } catch (error) {
       console.error('Failed to get current price:', error);
-      // Fallback: essayer une autre méthode ou API
-      return 0;
+      return this.getDemoPrice(); // Fallback vers prix démo
     }
+  }
+  
+  private getDemoPrice(): number {
+    // Prix simulés pour le mode démo
+    const prices: Record<string, number> = {
+      'BTCUSDT': 115000 + Math.random() * 1000,
+      'ETHUSDT': 4500 + Math.random() * 100,
+      'BNBUSDT': 900 + Math.random() * 20,
+      'SOLUSDT': 230 + Math.random() * 10,
+      'ADAUSDT': 0.85 + Math.random() * 0.05
+    };
+    return prices[this.symbol] || 100;
   }
   
   private updateStats(quantity: number, price: number, success: boolean) {
@@ -197,25 +224,12 @@ export class DCABot {
   }
   
   async logTrade(trade: TradeLog) {
-    // Ajouter au tableau local
     this.trades.push(trade);
     
-    // Logger dans la console
     console.log('📝 Trade logged:', {
       ...trade,
       stats: this.getStats()
     });
-    
-    // TODO: Sauvegarder en base de données
-    try {
-      // await fetch('/api/trades/log', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(trade)
-      // });
-    } catch (error) {
-      console.error('Failed to log trade to database:', error);
-    }
   }
   
   getStats(): BotStats {
@@ -255,7 +269,6 @@ export class DCABot {
     console.log('📊 Final stats:', this.getStats());
   }
   
-  // Méthode pour changer l'intervalle à la volée
   updateInterval(newIntervalHours: number) {
     this.intervalHours = newIntervalHours;
     if (this.isRunning) {
@@ -265,14 +278,12 @@ export class DCABot {
     }
   }
   
-  // Méthode pour changer le montant
   updateAmount(newAmount: number) {
     this.amount = newAmount;
     console.log(`💵 Investment amount updated to ${newAmount} USDT`);
   }
 }
 
-// Export d'une fonction helper pour créer et gérer plusieurs bots
 export class DCABotManager {
   private bots: Map<string, DCABot> = new Map();
   

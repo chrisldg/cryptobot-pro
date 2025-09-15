@@ -2,6 +2,24 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
 export async function POST(request: Request) {
+  // MODE DÉMO
+  if (!process.env.BINANCE_API_KEY || process.env.BINANCE_API_KEY === 'demo') {
+    const body = await request.json();
+    return NextResponse.json({ 
+      success: true,
+      demo: true,
+      order: {
+        orderId: 'DEMO-' + Date.now(),
+        symbol: body.symbol,
+        side: body.side,
+        type: body.type,
+        quantity: body.quantity,
+        status: 'FILLED'
+      },
+      message: 'Ordre simulé en mode démo'
+    });
+  }
+  
   if (process.env.BINANCE_TESTNET !== 'true') {
     return NextResponse.json({ 
       success: false,
@@ -49,7 +67,6 @@ export async function POST(request: Request) {
       data
     });
 
-    // IMPORTANT: Toujours retourner success: true si response.ok
     if (response.ok) {
       return NextResponse.json({
         success: true,
@@ -58,7 +75,6 @@ export async function POST(request: Request) {
         message: 'Order created successfully'
       });
     } else {
-      // Log l'erreur spécifique de Binance
       console.error('❌ Binance error:', data);
       return NextResponse.json({
         success: false,
