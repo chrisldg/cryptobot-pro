@@ -334,7 +334,7 @@ export class RealGridBot {
             const sellPrice = gridOrder.price * 1.02; // 2% de profit
             const sellOrder = await this.binance.sellOrder(
               this.symbol,
-              order.amount,
+              order.filled || order.quantity || 0,
               'limit',
               sellPrice
             );
