@@ -17,6 +17,13 @@ import { supabase } from '@/lib/supabase';
 import { TradeLogger } from '@/lib/trade-logger'; // AJOUTEZ CETTE LIGNE
 
 
+declare global {
+  interface Window {
+    stopLossMonitors?: any[];
+  }
+}
+
+
 interface CardProps {
   children: React.ReactNode;
   className?: string;
@@ -1385,8 +1392,8 @@ const handleLogout = async () => {
                       ];
                       
                       // Arrêter les anciens moniteurs si existants
-                      if (window.stopLossMonitors) {
-                        window.stopLossMonitors.forEach(m => m.stop());
+                      if ((window as any).stopLossMonitors) {
+                        (window as any).stopLossMonitors.forEach((m: any) => m.stop());
                       }
                       
                       // Créer les nouveaux moniteurs
