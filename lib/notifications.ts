@@ -30,7 +30,7 @@ interface NotificationConfig {
 export class NotificationManager {
   private emailTransporter?: nodemailer.Transporter;
   private telegramBot?: any;
-  private discordClient?: Client;
+  private discordClient?: any;
   private isInitialized = false;
 
   constructor(private config: NotificationConfig) {}
