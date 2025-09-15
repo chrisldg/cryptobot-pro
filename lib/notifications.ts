@@ -192,7 +192,7 @@ _Envoyé par CryptoBot Pro_
 
     for (const channelId of this.config.discord.channelIds) {
       try {
-        const channel = await this.discordClient.channels.fetch(channelId) as TextChannel;
+        const channel = await this.discordClient.channels.fetch(channelId) as any;
         await channel.send({ embeds: [embed] });
         console.log(`Discord notification sent to ${channelId}`);
       } catch (error) {
