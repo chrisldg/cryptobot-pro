@@ -11,6 +11,7 @@
   "dependencies": {
     "@stripe/stripe-js": "^7.9.0",
     "@supabase/supabase-js": "^2.57.4",
+    "@tensorflow/tfjs": "^4.22.0",
     "ccxt": "^4.5.2",
     "csv-parse": "^6.1.0",
     "csv-writer": "^1.6.0",

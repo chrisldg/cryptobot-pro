@@ -14,6 +14,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { supabase } from '@/lib/supabase';
+import { TradeLogger } from '@/lib/trade-logger'; // AJOUTEZ CETTE LIGNE
+
 
 interface CardProps {
   children: React.ReactNode;
@@ -75,6 +77,42 @@ export default function CryptoBotPro() {
   // État pour l'historique des trades
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
   const [loadingTrades, setLoadingTrades] = useState(false);
+
+  // AJOUTEZ ICI - États pour filtres et pagination
+  const [tradeFilter, setTradeFilter] = useState({
+    pair: 'ALL',
+    dateFrom: '',
+    dateTo: ''
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const tradesPerPage = 10;
+
+  // AJOUTEZ ICI - Filtrer les trades
+  const filteredTrades = useMemo(() => {
+    return tradeHistory.filter(trade => {
+      if (tradeFilter.pair !== 'ALL' && trade.symbol !== tradeFilter.pair) return false;
+      if (tradeFilter.dateFrom && new Date(trade.time) < new Date(tradeFilter.dateFrom)) return false;
+      if (tradeFilter.dateTo && new Date(trade.time) > new Date(tradeFilter.dateTo)) return false;
+      return true;
+    });
+  }, [tradeHistory, tradeFilter]);
+
+  // AJOUTEZ ICI - Pagination
+  const paginatedTrades = useMemo(() => {
+    const start = (currentPage - 1) * tradesPerPage;
+    return filteredTrades.slice(start, start + tradesPerPage);
+  }, [filteredTrades, currentPage]);
+
+  // AJOUTEZ ICI - Calcul P&L
+  const totalPL = useMemo(() => {
+    return filteredTrades.reduce((sum, trade) => {
+      const currentPrice = cryptoPrices.BTC?.price || 0;
+      const pl = trade.isBuyer 
+        ? (currentPrice - trade.price) * trade.qty
+        : (trade.price - currentPrice) * trade.qty;
+      return sum + pl;
+    }, 0);
+  }, [filteredTrades, cryptoPrices]);
 
   // Ajoutez cette ligne ici maintenant
   const totalTrades = tradeHistory.length || 0;
@@ -719,7 +757,7 @@ const handleLogout = async () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {tradeHistory.slice(0, 10).map((trade, index) => (
+                        {paginatedTrades.map((trade, index) => (
                           <tr key={trade.id || index} className="border-b dark:border-gray-700">
                             <td className="py-2 text-gray-900 dark:text-white">
                               {new Date(trade.time).toLocaleDateString('fr-FR')}
@@ -747,6 +785,34 @@ const handleLogout = async () => {
                         ))}
                       </tbody>
                     </table>
+
+                    {/* AJOUTEZ ICI - Contrôles de pagination */}
+                    <div className="flex justify-between items-center mt-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Total P&L: <span className={totalPL >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          ${totalPL.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 disabled:opacity-50"
+                        >
+                          Précédent
+                        </button>
+                        <span className="px-3 py-1">
+                          Page {currentPage} / {Math.ceil(filteredTrades.length / tradesPerPage)}
+                        </span>
+                        <button
+                          onClick={() => setCurrentPage(p => p + 1)}
+                          disabled={currentPage >= Math.ceil(filteredTrades.length / tradesPerPage)}
+                          className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 disabled:opacity-50"
+                        >
+                          Suivant
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -755,9 +821,84 @@ const handleLogout = async () => {
                 )}
               </Card>
 
+              {/* Section Monitoring des Bots */}
+              <Card>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Monitoring Bots Actifs
+                  </h3>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        const logger = new TradeLogger();
+                        logger.loadFromLocalStorage();
+                        logger.downloadCSV();
+                      }}
+                      className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
+                    >
+                      📥 Export CSV
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        const trades = JSON.parse(localStorage.getItem('trade_history') || '[]');
+                        const stats = {
+                          totalTrades: trades.length,
+                          totalInvested: trades.reduce((sum: number, t: any) => sum + (t.total || 0), 0),
+                          bySymbol: {} as any
+                        };
+                        
+                        trades.forEach((t: any) => {
+                          if (!stats.bySymbol[t.symbol]) {
+                            stats.bySymbol[t.symbol] = { count: 0, total: 0, quantity: 0 };
+                          }
+                          stats.bySymbol[t.symbol].count++;
+                          stats.bySymbol[t.symbol].total += t.total || 0;
+                          stats.bySymbol[t.symbol].quantity += t.quantity || 0;
+                        });
+                        
+                        console.table(stats.bySymbol);
+                        alert(`📊 Statistiques:\n\nTrades: ${stats.totalTrades}\nInvesti: ${stats.totalInvested.toFixed(2)} USDT\n\nDétails par crypto dans la console (F12).`);
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm"
+                    >
+                      📊 Voir Statistiques
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Bot DCA Bitcoin</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Status: <span className="text-green-500">Actif</span>
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Trades: 5</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Investi: $600</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">BTC: 0.005</p>
+                  </div>
+                  
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Bot Grid ETH</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Status: <span className="text-yellow-500">En attente</span>
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Grilles: 10</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Range: $3000-$3500</p>
+                  </div>
+                  
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Stop-Loss Auto</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Status: <span className="text-gray-500">Inactif</span>
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Seuil: -5%</p>
+                  </div>
+                </div>
+              </Card>
 
             </div>
-          )}
+          )}  {/* Fermeture du dashboard */}
 
           {activeSection === 'bots' && (
             <div className="space-y-6">
@@ -768,40 +909,167 @@ const handleLogout = async () => {
                     Gérez vos bots de trading automatisés
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowCreateBot(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  Créer Bot
-                </button>
-                {/* NOUVEAU BOUTON TEST DCA */}
-                <button 
-                  onClick={async () => {
-                    if (!confirm('Créer un ordre TEST de 0.001 BTC (~100 USDT) ?')) return;
-                    
-                    const res = await fetch('/api/binance/create-order', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        symbol: 'BTCUSDT',
-                        side: 'BUY',
-                        quantity: 0.001,
-                        type: 'MARKET'
-                      })
-                    });
-                    
-                    const data = await res.json();
-                    console.log('Order result:', data);
-                    alert(data.success ? '✅ Ordre TEST créé!' : `❌ Erreur: ${data.error}`);
-                  }}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
-                >
-                  <Zap className="w-5 h-5" />
-                  Test Ordre DCA (0.001 BTC)
-                </button>
 
+                {/* REMPLACEZ le bouton seul par une div avec plusieurs boutons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowCreateBot(true)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Créer Bot
+                  </button>
+                  
+                  {/* BOUTON TEST DCA existant */}
+                  <button 
+                    onClick={async () => {
+                      if (!confirm('Créer un ordre TEST de 0.001 BTC (~100 USDT) ?')) return;
+            
+                      const res = await fetch('/api/binance/create-order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          symbol: 'BTCUSDT',
+                          side: 'BUY',
+                          quantity: 0.001,
+                          type: 'MARKET'
+                        })
+                      });
+                      
+                      const data = await res.json();
+                      console.log('Order result:', data);
+                      alert(data.success ? '✅ Ordre TEST créé!' : `❌ Erreur: ${data.error}`);
+                    }}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    <Zap className="w-5 h-5" />
+                    Test Ordre DCA (0.001 BTC)
+                  </button>
+
+                  {/* BOUTON Bot DCA Automatique */}
+                  <button
+                    onClick={async () => {
+                      const { DCABot, DCABotManager } = await import('@/lib/dca-bot');
+                      
+                      // Créer un manager pour gérer plusieurs bots
+                      const manager = new DCABotManager();
+                      
+                      // Bot Bitcoin - toutes les 24h
+                      const btcBot = manager.createBot('btc-dca', 'BTCUSDT', 120, 24);
+                      btcBot.start();
+                      
+                      // Bot Ethereum - toutes les 24h  
+                      const ethBot = manager.createBot('eth-dca', 'ETHUSDT', 50, 24);
+                      ethBot.start();
+                      
+                      // Bot BNB - toutes les 12h
+                      const bnbBot = manager.createBot('bnb-dca', 'BNBUSDT', 30, 12);
+                      bnbBot.start();
+                      
+                      // Afficher les stats après 30 secondes
+                      setTimeout(() => {
+                        console.log('All bots stats:', manager.getStats());
+                      }, 30000);
+                      
+                      alert('3 Bots DCA démarrés:\n- BTC: 120 USDT/24h\n- ETH: 50 USDT/24h\n- BNB: 30 USDT/12h');
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    <Bot className="w-5 h-5" />
+                    Démarrer Bot DCA Auto
+                  </button>
+
+                  {/* NOUVEAU - Bouton Grid Bot */}
+                  <button
+                    onClick={async () => {
+                      const { GridBot } = await import('@/lib/grid-bot');
+                      const gridBot = new GridBot('ETHUSDT', 3000, 3500, 10, 1000);
+                      await gridBot.start();
+                      alert('Grid Bot ETH démarré: 10 grilles entre $3000-$3500');
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    📊 Démarrer Grid Bot
+                  </button>
+
+                  {/* NOUVEAU - Bot Analyse Avancée */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const { AdvancedAnalysisBot } = await import('@/lib/advanced-analysis-bot');
+
+                        // Liste étendue des cryptos majeures
+                        const symbols = [
+                          'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
+                          'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'MATICUSDT', 'LINKUSDT'
+                        ];
+
+                        const bot = new AdvancedAnalysisBot(0.05, symbols);
+                        
+                        console.log('⏳ Initialisation du bot d\'analyse...');
+                        await bot.initialize();
+                        
+                        console.log('🔍 Analyse de', symbols.length, 'cryptos en cours...');
+                        const signals = await bot.execute();
+                        
+                        console.log('📊 Backtesting...');
+                        await bot.backtest('DCA', 30);
+                        
+                        // Créer un résumé pour l'utilisateur
+                        const bestSignal = signals
+                          .filter(s => s.suggestedAction !== 'HOLD')
+                          .sort((a, b) => (b.confidence * b.strength) - (a.confidence * a.strength))[0];
+                        
+                        if (bestSignal) {
+                          alert(`✨ Analyse terminée!\n\nMeilleure opportunité: ${bestSignal.symbol}\nAction: ${bestSignal.suggestedAction}\nConfiance: ${(bestSignal.confidence * 100).toFixed(0)}%\nRisque: ${bestSignal.riskLevel}\n\n⚠️ RAPPEL: Aucune garantie de profit!\n\nVoir la console pour détails complets.`);
+                        } else {
+                          alert('📊 Analyse terminée\n\nAucune opportunité claire détectée.\nRester en dehors du marché.\n\nVoir la console pour détails.');
+                        }
+                        
+                      } catch (error) {
+                        console.error('Erreur bot analyse:', error);
+                        alert('❌ Erreur lors de l\'analyse. Vérifiez la console.');
+                      }
+                    }}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    🤖 Bot Analyse Avancée
+                  </button>
+
+
+                  {/* AJOUTEZ ICI LE NOUVEAU BOUTON - ligne ~1040 */}
+                  <button
+                    onClick={async () => {
+                      const { CandlestickBot } = await import('@/lib/candlestick-bot');
+                      const bot = new CandlestickBot();
+                      
+                      const pairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT'];
+                      
+                      const results = [];
+                      for (const pair of pairs) {
+                        console.log(`\n🕯️ Analyse ${pair}...`);
+                        const result = await bot.analyzeCandles(pair);
+                        results.push(result);
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                      }
+                      
+                      const buySignals = results.filter(r => r?.action === 'BUY');
+                      const sellSignals = results.filter(r => r?.action === 'SELL');
+                      
+                      alert(`📊 Analyse Bougies Japonaises terminée!\n\n` +
+                            `🟢 Signaux ACHAT: ${buySignals.length}\n` +
+                            `🔴 Signaux VENTE: ${sellSignals.length}\n` +
+                            `⏸️ HOLD: ${results.length - buySignals.length - sellSignals.length}\n\n` +
+                            `Voir console pour détails complets`);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    🕯️ Bot Bougies Japonaises
+                  </button>
+          
+                </div>
               </div>
+
 
               {/* Bots Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -1064,6 +1332,55 @@ const handleLogout = async () => {
                     className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg ml-2"
                   >
                     Voir Prix & Portfolio
+                  </button>
+
+                  {/* AJOUTEZ ICI LE NOUVEAU BOUTON STOP-LOSS GLOBAL */}
+                  <button
+                    onClick={async () => {
+                      // Vérifier si des stop-loss sont déjà actifs
+                      const existingStopLosses = localStorage.getItem('active_stop_losses');
+                      if (existingStopLosses) {
+                        if (!confirm('Des Stop-Loss sont déjà actifs. Les remplacer ?')) {
+                          return;
+                        }
+                      }
+                      
+                      const { StopLossMonitor } = await import('@/lib/stop-loss');
+                      
+                      const stopLossConfigs = [
+                        { symbol: 'BTCUSDT', price: 115000, percent: 5, quantity: 0.001 },
+                        { symbol: 'ETHUSDT', price: 4500, percent: 5, quantity: 0.01 },
+                        { symbol: 'BNBUSDT', price: 900, percent: 5, quantity: 0.03 },
+                        { symbol: 'SOLUSDT', price: 235, percent: 8, quantity: 0.1 },
+                        { symbol: 'ADAUSDT', price: 0.86, percent: 8, quantity: 100 }
+                      ];
+                      
+                      // Arrêter les anciens moniteurs si existants
+                      if (window.stopLossMonitors) {
+                        window.stopLossMonitors.forEach(m => m.stop());
+                      }
+                      
+                      // Créer les nouveaux moniteurs
+                      window.stopLossMonitors = stopLossConfigs.map(config => {
+                        const monitor = new StopLossMonitor(
+                          config.symbol,
+                          config.price,
+                          config.percent,
+                          config.quantity
+                        );
+                        monitor.start();
+                        return monitor;
+                      });
+                      
+                      localStorage.setItem('active_stop_losses', JSON.stringify(stopLossConfigs));
+                      
+                      alert(`✅ Stop-Loss activés (anciens arrêtés):\n\n${stopLossConfigs.map(c => 
+                        `${c.symbol}: -${c.percent}% à $${c.price}`
+                      ).join('\n')}\n\n⚠️ Surveillance active 24/7`);
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg transition-colors"
+                  >
+                    🛑 Activer Stop-Loss GLOBAL (Toutes Cryptos)
                   </button>
 
                 </div>
