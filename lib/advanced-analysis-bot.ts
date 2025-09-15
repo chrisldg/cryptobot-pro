@@ -142,7 +142,7 @@ export class AdvancedAnalysisBot {
 
   // Pattern Recognition
   detectPatterns(symbol: string): string[] {
-    const patterns = [];
+    const patterns: string[] = [];
     const data = this.historicalData.get(symbol) || [];
     
     if (data.length < 30) return patterns;
