@@ -29,7 +29,7 @@ interface NotificationConfig {
 // ===== GESTIONNAIRE DE NOTIFICATIONS =====
 export class NotificationManager {
   private emailTransporter?: nodemailer.Transporter;
-  private telegramBot?: TelegramBot;
+  private telegramBot?: any;
   private discordClient?: Client;
   private isInitialized = false;
 
