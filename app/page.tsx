@@ -1066,6 +1066,35 @@ const handleLogout = async () => {
                   >
                     🕯️ Bot Bougies Japonaises
                   </button>
+
+                  {/* AJOUTEZ ICI LE NOUVEAU BOUTON MOMENTUM - ligne ~1060 */}
+                  <button
+                    onClick={async () => {
+                      const { MomentumStrategy } = await import('@/lib/momentum-strategy');
+                      const momentum = new MomentumStrategy();
+                      
+                      const capital = 1000; // USDT
+                      const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];
+                      
+                      for (const symbol of symbols) {
+                        console.log(`\n📊 Analyse Momentum ${symbol}...`);
+                        const result = await momentum.execute(symbol, capital);
+                        
+                        if (result.success) {
+                          alert(`✅ SIGNAL MOMENTUM sur ${symbol}!\n\n` +
+                                `Entrée: ${result.entry} USDT\n` +
+                                `Stop-Loss: ${result.stopLoss} USDT\n` +
+                                `Take-Profit: ${result.takeProfit} USDT\n` +
+                                `Taille: ${result.size} USDT`);
+                        }
+                      }
+                      
+                      momentum.monitor(symbols, capital, 300000);
+                    }}
+                    className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    🚀 Stratégie Momentum (25-35% annuel)
+                  </button>
           
                 </div>
               </div>
