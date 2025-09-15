@@ -80,7 +80,7 @@ export class MomentumStrategy {
       const macd = this.calculateMACD(prices);
       
       // Volume ratio
-      const avgVolume = volumes.slice(-20).reduce((a, b) => a + b) / 20;
+      const avgVolume = volumes.slice(-20).reduce((a: number, b: number) => a + b) / 20;
       const currentVolume = volumes[volumes.length - 1];
       const volumeRatio = currentVolume / avgVolume;
       
