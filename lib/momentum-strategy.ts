@@ -66,7 +66,7 @@ export class MomentumStrategy {
       const volumes = candles.map((c: any) => parseFloat(c[5]));
       
       // Moyenne mobile 20 périodes
-      const ma20 = prices.slice(-20).reduce((a, b) => a + b) / 20;
+      const ma20 = prices.slice(-20).reduce((a: number, b: number) => a + b) / 20;
       const currentPrice = prices[prices.length - 1];
       
       // Calculer la force de la tendance
