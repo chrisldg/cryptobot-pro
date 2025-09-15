@@ -14,6 +14,7 @@ export class AdvancedAnalysisBot {
   private historicalData: Map<string, any[]> = new Map();
   private indicators: Map<string, number> = new Map();
   private mlModel: tf.LayersModel | null = null;
+  private initialized: boolean = false; // AJOUT - Déclaration de la propriété
   
   constructor(
     private riskTolerance: number = 0.05, // Max 5% par trade
@@ -21,17 +22,33 @@ export class AdvancedAnalysisBot {
   ) {}
 
   async initialize() {
-    console.log('⚠️ AVERTISSEMENT: Ce bot ne garantit PAS de profits');
-    console.log('📉 Les pertes sont possibles et même probables');
-    
-    // Charger les données historiques
-    for (const symbol of this.symbols) {
-      await this.loadHistoricalData(symbol);
+
+    // Vérification du mode démo
+    if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_BINANCE_API_KEY) {
+        console.log('🎮 Bot Analyse en MODE DÉMO - Résultats simulés');
+        this.initialized = true;
+        return;
     }
     
-    // Initialiser le modèle ML (simplifié)
-    this.initializeMLModel();
+    try {    
+     console.log('⚠️ AVERTISSEMENT: Ce bot ne garantit PAS de profits');
+     console.log('📉 Les pertes sont possibles et même probables');
+    
+     // Charger les données historiques
+     for (const symbol of this.symbols) {
+      await this.loadHistoricalData(symbol);
+     }
+    
+     // Initialiser le modèle ML (simplifié)
+     this.initializeMLModel();
+     this.initialized = true;
+    }catch (error) {
+     console.error('Erreur initialisation:', error);
+     this.initialized = true; // Continue en mode démo
+
+    }
   }
+
 
   private async loadHistoricalData(symbol: string) {
     try {
@@ -326,6 +343,13 @@ export class AdvancedAnalysisBot {
 
   // Exécution principale
   async execute() {
+
+    // Mode démo si pas initialisé
+    if (!this.initialized || typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_BINANCE_API_KEY) {
+        console.log('📊 Analyse en mode démo');
+        return this.generateDemoSignals();
+    }
+
     console.log('🔍 Analyse des marchés en cours...');
     console.log('⚠️ RAPPEL: Les cryptos sont TRÈS risquées');
     
@@ -361,6 +385,18 @@ export class AdvancedAnalysisBot {
     }
     
     return signals;
+  }
+
+  // NOUVELLE MÉTHODE - Génération de signaux démo
+  private generateDemoSignals(): MarketSignal[] {
+    return this.symbols.map(symbol => ({
+      symbol,
+      strength: 50 + Math.random() * 50,
+      confidence: 0.2 + Math.random() * 0.3,
+      riskLevel: 'LOW' as const,
+      suggestedAction: 'HOLD' as const,
+      reasoning: ['Mode démo - Analyse simulée', 'Données de marché simulées']
+    }));
   }
 
   private calculatePositionSize(signal: MarketSignal): number {
